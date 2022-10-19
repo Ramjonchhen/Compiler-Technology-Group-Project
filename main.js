@@ -441,11 +441,11 @@ function calculateNoOfPop(productionOutput, termNonTermObj) {
   let toCheckString = "";
   let totalNoOfPop = 0;
 
-  for(let i = 0; i<productionOutput.length; i++) {
-    if(!isUpperCase(productionOutput[i])) {
+  for (let i = 0; i < productionOutput.length; i++) {
+    if (!isUpperCase(productionOutput[i])) {
       toCheckString = productionOutput[i];
 
-      while( !termNonTermObj.nonTerminals.includes(toCheckString) ) {
+      while (!termNonTermObj.nonTerminals.includes(toCheckString)) {
         toCheckString += productionOutput[++i];
       }
     }
@@ -505,7 +505,7 @@ function computeParsingTable(
         `Reduce by ${reducingProduction.input} -> ${reducingProduction.output}`
       );
     } else {
-      parsingTablePush.push('');
+      parsingTablePush.push("");
       parsingTablePush.push("Accept");
     }
 
@@ -525,6 +525,7 @@ function parseInput() {
   console.log("grammar array is: ", grammarArray);
   let stateArray = constructStateArray(grammarArray);
   console.log("state array is: ", stateArray);
+  drawStates(stateArray);
   let terminalNonTerminalObj = computeTerminalsAndNonTerminals(grammarArray);
   console.log("terminal and non-terminal obj: ", terminalNonTerminalObj);
   let followObj = computeFollowForGrammar(grammarArray, terminalNonTerminalObj);
@@ -563,3 +564,180 @@ function parseInput() {
 
   console.log("parsing table output: ", parsingTableOutput);
 }
+
+class CreateCircle {
+  constructor(stateObj, x, y) {
+    this.stateObj = stateObj;
+    this.h = x;
+    this.k = y;
+    this.textX = 0;
+    this.textY = 0;
+    this.r = 0;
+  }
+
+  draw(stateArray) {
+    console.log("drawing the state: ",this.stateObj.stateNo);
+    let noOfElements = this.stateObj.stateElements.length;
+    this.r = 45 + (noOfElements - 1) * 6;
+
+    if(this.stateObj.stateNo !== 0) {
+      this.h = this.h + this.r;
+    }
+    console.log('h',this.h,'k', this.k, 'r',this.r);
+    c.beginPath();
+    c.arc(this.h, this.k, this.r, 0, Math.PI * 2, false);
+    c.stroke();
+
+    this.textX = this.h - (8 / 10) * this.r + noOfElements * 4;
+    this.textY =
+      this.k -
+      ((noOfElements - 1) / noOfElements) * this.r +
+      noOfElements * 4.5;
+    let stateElements = this.stateObj.stateElements;
+    for (let stateObj of stateElements) {
+      c.fillText(
+        `${stateObj.input} -> ${stateObj.output}`,
+        this.textX,
+        this.textY
+      );
+      this.textY += 17;
+    }
+
+    let stateTransArr = Object.entries(this.stateObj.stateTransitions);
+
+    let linePointsToDraw = this.getPointsForLines(
+      this.h,
+      this.k,
+      this.r,
+      stateTransArr.length
+    );
+    return this.drawLines(linePointsToDraw, stateTransArr,stateArray);
+  }
+
+  getYCorForCircle(xCor) {
+    return this.k - Math.sqrt(Math.pow(this.r, 2) - Math.pow(xCor - this.h, 2));
+  }
+
+  drawLines(lineInitialPointArray, stateTransArr, stateArray) {
+    if (stateTransArr.length === 0) {
+      return [];
+    }
+    let nextStatesPointsToDraw = [];
+    let dx = 20 + (stateTransArr.length / 10) * 25;
+    let dy = -50 - (stateTransArr.length / 10) * 300;
+    let dyDec = (-dy / stateTransArr.length) * 2;
+    for (let i = 0; i < stateTransArr.length; i++) {
+      let startX = lineInitialPointArray[i][0];
+      let startY = lineInitialPointArray[i][1];
+      let endX = startX + dx + (this.h + this.r - startX);
+      let endY = startY + dy;
+
+      if( i>1 ) {
+        let prevStateNo = stateTransArr[i-1][1];
+        let prevStaNoOfElem = stateArray[ prevStateNo].stateElements.length;
+        let prevStateRadius = 50 + (prevStaNoOfElem - 1) * 6 ;
+        let currtStateNo = stateTransArr[i][1];
+        let currStateNoOfElem = stateArray[ currtStateNo].stateElements.length;
+        let currentStateRadius = 50 + (currStateNoOfElem - 1) * 6 ;
+        endY= nextStatesPointsToDraw[i-1][1] + prevStateRadius + currentStateRadius + 5;
+      } 
+      
+      c.beginPath();
+      c.moveTo(startX, startY);
+      c.lineTo(endX, endY);
+      c.stroke();
+      c.beginPath();
+      let midX = (startX + endX) / 2;
+      let midY = (startY + endY) / 2;
+      c.fillText(stateTransArr[i][0], midX - 5, midY - 5);
+      dy += dyDec;
+      nextStatesPointsToDraw.push([endX, endY]);
+    }
+    return nextStatesPointsToDraw;
+  }
+
+  getPointsForLines(x, y, r, noOfElements) {
+    if (noOfElements === 0) {
+      return;
+    }
+    let initialLineX = x + (3 / 10) * r;
+    let initialLineY = this.getYCorForCircle(initialLineX);
+    let lineStartingPointArray = [];
+
+    lineStartingPointArray.push([initialLineX, initialLineY]);
+    let incrPer = (12 - noOfElements) / 10;
+    for (let i = 1; i <= parseInt((noOfElements - 1) / 2); i++) {
+      initialLineX = initialLineX + incrPer * (x + r - initialLineX);
+      initialLineY = this.getYCorForCircle(initialLineX);
+      lineStartingPointArray.push([initialLineX, initialLineY]);
+      incrPer += 0.2;
+    }
+
+    let j = lineStartingPointArray.length;
+    if ((noOfElements - j) % 2 === 0 && noOfElements % 2 === 1) {
+      j--;
+    }
+    while (lineStartingPointArray.length !== noOfElements) {
+      j--;
+      let xToPush = lineStartingPointArray[j][0];
+      let yToPush = lineStartingPointArray[j][1];
+      yToPush = yToPush + (y - yToPush) * 2;
+      lineStartingPointArray.push([xToPush, yToPush]);
+    }
+    return lineStartingPointArray;
+  }
+}
+
+function drawStates(stateArray) {
+  let arcArray = [];
+
+  let statesToDrawObj = {
+    states: [0],
+    statesPoints: [[150, canvas.height / 2]],
+  };
+
+  let alreadyDrawnStates = [];
+
+  while (statesToDrawObj.states.length !== 0) {
+    let newStatesToReplace = [];
+    let newPointsToReplace= [];
+    for (let i = 0; i < statesToDrawObj.states.length; i++) {
+      let stateNo = statesToDrawObj.states[i];
+      let x = statesToDrawObj.statesPoints[i][0];
+      let y = statesToDrawObj.statesPoints[i][1];
+
+      if (!alreadyDrawnStates.includes(stateNo)) {
+        console.log("going to draw the state no from if: ",stateNo);
+        let circleObj = new CreateCircle(stateArray[stateNo], x, y);
+        let returnedPoints = circleObj.draw(stateArray);
+        console.log("returned points is: ",returnedPoints);
+        alreadyDrawnStates.push(stateNo);
+        for (const [key,value] of Object.entries(
+          stateArray[stateNo].stateTransitions
+        )) {
+          newStatesToReplace.push(value);
+        }
+
+        for(let pointsArray of returnedPoints) {
+          newPointsToReplace.push(pointsArray);
+        }
+      } else {
+        c.fillText(`State No: ${stateNo}`,x + 5,y)
+      }
+    }
+    statesToDrawObj.states = newStatesToReplace;
+    statesToDrawObj.statesPoints = newPointsToReplace;
+    console.log("states to draw obj array is: ",statesToDrawObj);
+  }
+}
+
+// canvas code
+
+let canvas = document.querySelector("canvas");
+
+canvas.width = window.innerWidth - 70;
+canvas.height = window.innerHeight * 4;
+
+let c = canvas.getContext("2d");
+c.font = "17px Tahoma";
+c.strokeStyle = "rgba(1,1,1,1)";
