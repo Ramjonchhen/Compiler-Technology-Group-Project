@@ -575,15 +575,14 @@ class CreateCircle {
     this.r = 0;
   }
 
-  draw(stateArray) {
-    console.log("drawing the state: ",this.stateObj.stateNo);
+  draw(stateArray, lastPlottedObj, alreadyDrawnStates) {
+    console.log("--------drawing the state : ",this.stateObj.stateNo);
     let noOfElements = this.stateObj.stateElements.length;
     this.r = 45 + (noOfElements - 1) * 6;
 
-    if(this.stateObj.stateNo !== 0) {
+    if (this.stateObj.stateNo !== 0) {
       this.h = this.h + this.r;
     }
-    console.log('h',this.h,'k', this.k, 'r',this.r);
     c.beginPath();
     c.arc(this.h, this.k, this.r, 0, Math.PI * 2, false);
     c.stroke();
@@ -593,6 +592,7 @@ class CreateCircle {
       this.k -
       ((noOfElements - 1) / noOfElements) * this.r +
       noOfElements * 4.5;
+    c.strokeText(`   I${this.stateObj.stateNo}`,this.textX,this.textY-17);
     let stateElements = this.stateObj.stateElements;
     for (let stateObj of stateElements) {
       c.fillText(
@@ -602,26 +602,64 @@ class CreateCircle {
       );
       this.textY += 17;
     }
-
-    let stateTransArr = Object.entries(this.stateObj.stateTransitions);
-
-    let linePointsToDraw = this.getPointsForLines(
-      this.h,
-      this.k,
-      this.r,
-      stateTransArr.length
-    );
-    return this.drawLines(linePointsToDraw, stateTransArr,stateArray);
+    return this.drawLines(stateArray, lastPlottedObj, alreadyDrawnStates);
   }
 
-  getYCorForCircle(xCor) {
-    return this.k - Math.sqrt(Math.pow(this.r, 2) - Math.pow(xCor - this.h, 2));
-  }
+  getLineStartingPoints(isCompletlyNewState, noOfTransitions) {
+    let initialLineX = this.h + (3 / 10) * this.r;
+    let initialLineY = this.getYCorForCircle(initialLineX);
+    let lineStartingPointArray = [];
+    let incrPer = (12 - noOfTransitions) / 10;
 
-  drawLines(lineInitialPointArray, stateTransArr, stateArray) {
-    if (stateTransArr.length === 0) {
-      return [];
+    lineStartingPointArray.push([initialLineX, initialLineY]);
+    if (!isCompletlyNewState) {
+      incrPer = 9/10;
+
+      while (lineStartingPointArray.length !== noOfTransitions) {
+        initialLineX =
+          initialLineX + incrPer * (this.h + this.r - initialLineX);
+        initialLineY = this.getYCorForCircle(initialLineX);
+        lineStartingPointArray.push([initialLineX, initialLineY]);
+        //incrPer += 0.2;
+      }
+
+      return lineStartingPointArray;
     }
+
+    for (let i = 1; i <= parseInt((noOfTransitions - 1) / 2); i++) {
+      initialLineX = initialLineX + incrPer * (this.h + this.r - initialLineX);
+      initialLineY = this.getYCorForCircle(initialLineX);
+      lineStartingPointArray.push([initialLineX, initialLineY]);
+      incrPer += 0.2;
+    }
+
+    let j = lineStartingPointArray.length;
+    if ((noOfTransitions - j) % 2 === 0 && noOfTransitions % 2 === 1) {
+      j--;
+    }
+    while (lineStartingPointArray.length !== noOfTransitions) {
+      j--;
+      let xToPush = lineStartingPointArray[j][0];
+      let yToPush = lineStartingPointArray[j][1];
+      yToPush = yToPush + (this.k - yToPush) * 2;
+      lineStartingPointArray.push([xToPush, yToPush]);
+    }
+    return lineStartingPointArray;
+  }
+
+  getRadiusOfState(state, stateArray) {
+    let stateNoOfElem = stateArray[state].stateElements.length;
+    return 50 + (stateNoOfElem - 1) * 6;
+  }
+
+  plotLines(
+    lineInitialPointArray,
+    stateTransArr,
+    stateArray,
+    lastPlottedObj,
+    alreadyDrawnStates
+  ) {
+    console.log("already drawn states is: ",alreadyDrawnStates);
     let nextStatesPointsToDraw = [];
     let dx = 20 + (stateTransArr.length / 10) * 25;
     let dy = -50 - (stateTransArr.length / 10) * 300;
@@ -632,16 +670,74 @@ class CreateCircle {
       let endX = startX + dx + (this.h + this.r - startX);
       let endY = startY + dy;
 
-      if( i>1 ) {
-        let prevStateNo = stateTransArr[i-1][1];
-        let prevStaNoOfElem = stateArray[ prevStateNo].stateElements.length;
-        let prevStateRadius = 50 + (prevStaNoOfElem - 1) * 6 ;
-        let currtStateNo = stateTransArr[i][1];
-        let currStateNoOfElem = stateArray[ currtStateNo].stateElements.length;
-        let currentStateRadius = 50 + (currStateNoOfElem - 1) * 6 ;
-        endY= nextStatesPointsToDraw[i-1][1] + prevStateRadius + currentStateRadius + 5;
-      } 
-      
+      console.log("transtion of : ",stateTransArr[i][0],"transtion to state: ",stateTransArr[i][1]);
+      let currStateRadius = this.getRadiusOfState(
+        stateTransArr[i][1],
+        stateArray
+      );
+
+      if (i >= 1) {
+        let prevStateRadius = this.getRadiusOfState(
+          stateTransArr[i - 1][1],
+          stateArray
+        );
+
+        if (
+          !alreadyDrawnStates.includes(stateTransArr[i - 1][1]) &&
+          !alreadyDrawnStates.includes(stateTransArr[i][1])
+        ) {
+          console.log("called i>1 when both previous and current state is not drawn");
+          endY =
+            nextStatesPointsToDraw[i - 1][1] +
+            prevStateRadius +
+            currStateRadius +
+            5;
+        } else if (
+          alreadyDrawnStates.includes(stateTransArr[i - 1][1]) === false &&
+          alreadyDrawnStates.includes(stateTransArr[i][1])
+        ) {
+          console.log("called i>1 when previous state is not drawn and current state is drawn");
+          endY = nextStatesPointsToDraw[i - 1][1] + prevStateRadius + 10;
+        } else if(
+          alreadyDrawnStates.includes(stateTransArr[i - 1][1]) &&
+          alreadyDrawnStates.includes(stateTransArr[i][1]) 
+        ) {
+          console.log("called i>1 when both state is drawn");
+          endY = nextStatesPointsToDraw[i - 1][1] + 60;
+        }
+      } else if (i === 0 && lastPlottedObj !== undefined) {
+
+        let pushedStateRadius = this.getRadiusOfState(
+          lastPlottedObj.lastStatePushed,
+          stateArray
+        );
+
+        if (
+          !alreadyDrawnStates.includes(lastPlottedObj.lastStatePushed) &&
+          !alreadyDrawnStates.includes(stateTransArr[i][1])
+        ) {
+          console.log("called i==0 when both pushed state and first current state is not drawn");
+          endY =
+            lastPlottedObj.lastPointArray[1] +
+            pushedStateRadius +
+            currStateRadius +
+            20;
+        } else if( 
+           alreadyDrawnStates.includes(lastPlottedObj.lastStatePushed) &&
+           alreadyDrawnStates.includes(stateTransArr[i][1]) === false
+        ) {
+          console.log("called i==0 when pushed state is drawn and first current state is not drawn");
+          endY =
+            lastPlottedObj.lastPointArray[1] +
+            currStateRadius +
+            40;
+        }
+        else {
+          console.log("called i==0 when both pushed state and first current state is  drawn");
+          endY = lastPlottedObj.lastPointArray[1] + 20;
+        }
+      }
+
       c.beginPath();
       c.moveTo(startX, startY);
       c.lineTo(endX, endY);
@@ -656,35 +752,36 @@ class CreateCircle {
     return nextStatesPointsToDraw;
   }
 
-  getPointsForLines(x, y, r, noOfElements) {
-    if (noOfElements === 0) {
-      return;
-    }
-    let initialLineX = x + (3 / 10) * r;
-    let initialLineY = this.getYCorForCircle(initialLineX);
-    let lineStartingPointArray = [];
-
-    lineStartingPointArray.push([initialLineX, initialLineY]);
-    let incrPer = (12 - noOfElements) / 10;
-    for (let i = 1; i <= parseInt((noOfElements - 1) / 2); i++) {
-      initialLineX = initialLineX + incrPer * (x + r - initialLineX);
-      initialLineY = this.getYCorForCircle(initialLineX);
-      lineStartingPointArray.push([initialLineX, initialLineY]);
-      incrPer += 0.2;
+  drawLines(stateArray, lastPlottedObj, alreadyDrawnStates) {
+    let stateTranstions = Object.entries(this.stateObj.stateTransitions);
+    let noOfTranstions = stateTranstions.length;
+    if (noOfTranstions === 0) {
+      return [];
     }
 
-    let j = lineStartingPointArray.length;
-    if ((noOfElements - j) % 2 === 0 && noOfElements % 2 === 1) {
-      j--;
-    }
-    while (lineStartingPointArray.length !== noOfElements) {
-      j--;
-      let xToPush = lineStartingPointArray[j][0];
-      let yToPush = lineStartingPointArray[j][1];
-      yToPush = yToPush + (y - yToPush) * 2;
-      lineStartingPointArray.push([xToPush, yToPush]);
-    }
-    return lineStartingPointArray;
+    let noOfNewStatesToDraw = stateTranstions.filter(
+      ([key, value]) => !alreadyDrawnStates.includes(value)
+    ).length;
+
+    let isCompletlyNewState =
+      noOfNewStatesToDraw === noOfTranstions ? true : false;
+
+    let lineInitialPointArray = this.getLineStartingPoints(
+      isCompletlyNewState,
+      noOfTranstions
+    );
+
+    return this.plotLines(
+      lineInitialPointArray,
+      stateTranstions,
+      stateArray,
+      lastPlottedObj,
+      alreadyDrawnStates
+    );
+  }
+
+  getYCorForCircle(xCor) {
+    return this.k - Math.sqrt(Math.pow(this.r, 2) - Math.pow(xCor - this.h, 2));
   }
 }
 
@@ -697,37 +794,53 @@ function drawStates(stateArray) {
   };
 
   let alreadyDrawnStates = [];
+  let alreadyDrawnStatesForPlot = [];
 
   while (statesToDrawObj.states.length !== 0) {
     let newStatesToReplace = [];
-    let newPointsToReplace= [];
+    let newPointsToReplace = [];
     for (let i = 0; i < statesToDrawObj.states.length; i++) {
       let stateNo = statesToDrawObj.states[i];
       let x = statesToDrawObj.statesPoints[i][0];
       let y = statesToDrawObj.statesPoints[i][1];
 
       if (!alreadyDrawnStates.includes(stateNo)) {
-        console.log("going to draw the state no from if: ",stateNo);
         let circleObj = new CreateCircle(stateArray[stateNo], x, y);
-        let returnedPoints = circleObj.draw(stateArray);
-        console.log("returned points is: ",returnedPoints);
+
+        let objToPassToDraw =
+          i >= 1 && newStatesToReplace.length >=1
+            ? {
+                lastStatePushed:
+                  newStatesToReplace[newStatesToReplace.length - 1],
+                lastPointArray:
+                  newPointsToReplace[newPointsToReplace.length - 1],
+              }
+            : undefined;
+
+        let returnedPoints = circleObj.draw(
+          stateArray,
+          objToPassToDraw,
+          alreadyDrawnStatesForPlot
+        );
+
         alreadyDrawnStates.push(stateNo);
-        for (const [key,value] of Object.entries(
+        for (const [key, value] of Object.entries(
           stateArray[stateNo].stateTransitions
         )) {
           newStatesToReplace.push(value);
         }
 
-        for(let pointsArray of returnedPoints) {
+        for (let pointsArray of returnedPoints) {
           newPointsToReplace.push(pointsArray);
         }
       } else {
-        c.fillText(`State No: ${stateNo}`,x + 5,y)
+        c.fillText(`State No: ${stateNo}`, x + 5, y);
       }
     }
     statesToDrawObj.states = newStatesToReplace;
     statesToDrawObj.statesPoints = newPointsToReplace;
-    console.log("states to draw obj array is: ",statesToDrawObj);
+    alreadyDrawnStatesForPlot = alreadyDrawnStatesForPlot.concat(newStatesToReplace);
+    console.log("alread drawn states for plot: ",alreadyDrawnStatesForPlot);
   }
 }
 
