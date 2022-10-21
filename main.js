@@ -1,3 +1,5 @@
+// import {drawSlrTable} from "./drawTable.js";
+
 const submitButton = document.getElementById("submit");
 
 submitButton.addEventListener("click", parseInput);
@@ -310,6 +312,7 @@ function computeFollowForGrammar(grammarArray, terNonTermObj) {
     let stateContainingTerminal = grammarArray.filter((grammarState) => {
       return grammarState.output.includes(toFindFollowTerminal);
     });
+    console.log("state containing terminal is: ",stateContainingTerminal);
 
     for (states of stateContainingTerminal) {
       let indexOfTerminal = states.output.indexOf(toFindFollowTerminal);
@@ -517,6 +520,92 @@ function computeParsingTable(
   return parsingTable;
 }
 
+function drawSlrTable(slrTable) {
+  let noOfActions = Object.entries(slrTable[0].actions).length;
+  let noOfGoto = Object.entries(slrTable[0].gotos).length;
+
+  let tableHtml = "<table>";
+
+  tableHtml += `<thead>
+        <tr>
+            <th rowpan="2">State</th>
+            <th colspan=${noOfActions}>Action table</th>
+            <th colspan=${noOfGoto}>Goto table</th>
+        </tr>
+        <tr>
+        <th></th>
+        `;
+
+  for(const[action] of Object.entries(slrTable[0].actions)) {
+    tableHtml += `<th>${action}</th>`;
+  }
+
+  for(const[gotos] of Object.entries(slrTable[0].gotos)) {
+    tableHtml += `<th>${gotos}</th>`;
+  }
+
+  tableHtml += "</tr><tbody>";
+
+  for(let i=0; i<slrTable.length; i++) {
+    tableHtml += `<tr> <td> ${i} </td>`;
+
+    const task = ['actions','gotos']
+    for(const tasktext of task ) {
+      for(const [item, itemArray] of Object.entries(slrTable[i][tasktext])) {
+        let noOfItems = itemArray.length;
+        let toAddText = "";
+        if(noOfItems <= 1) {
+          toAddText =  noOfItems === 1 ? itemArray[0] : ' ';
+          tableHtml += `<td> ${toAddText} </td>`;
+        } else {
+          toAddText =itemArray.join(' / ');
+          tableHtml += `<td style="background:grey;"> ${toAddText} </td>`;
+        }
+      }
+    }
+    tableHtml += "</tr>";
+    
+  }
+
+    tableHtml += `</tbody>`;
+    tableHtml += "</table>";
+
+    document.getElementById('slr-table').innerHTML += tableHtml;
+}
+
+function drawInputParsingTable(inputParsingArray,input) {
+  let tableHtml = `
+  <p>Parsing the input string ${input} by using the above parsing table</p>
+  <table>
+    <thead>
+      <th>Stack</th>
+      <th>Input buffer</th>
+      <th>Action table</th>
+      <th>Goto table</th>
+      <th>Parsing Action</th>
+    </thead>
+    <tbody>
+  `
+
+  inputParsingArray = inputParsingArray.map( (item) => {
+    return item.map( (tdElement) => {
+      return `<td>${tdElement}</td>`
+    } );
+  });
+  console.log("input parsing array: ",inputParsingArray);
+
+  for(let rowElements of inputParsingArray) {
+    tableHtml += "<tr>";
+    for(let tdElement of rowElements) {
+      tableHtml += tdElement;
+    }
+    tableHtml += "</tr>";
+  }
+  tableHtml += "</tbody></table>";
+
+  document.getElementById('input-parsing-table').innerHTML += tableHtml;
+}
+
 function parseInput() {
   const grammarInput = document.getElementById("grammar-input").value;
   let parsingInput = document.getElementById("parsing-input").value;
@@ -530,12 +619,15 @@ function parseInput() {
   console.log("terminal and non-terminal obj: ", terminalNonTerminalObj);
   let followObj = computeFollowForGrammar(grammarArray, terminalNonTerminalObj);
   console.log("follow object is: ", followObj);
+
   let slrParsingTable = computeSlrParsingTable(
     stateArray,
     followObj,
     terminalNonTerminalObj,
     grammarArray
   );
+  console.log("parsing table: ",slrParsingTable);
+  drawSlrTable(slrParsingTable);
 
   for (let i = 0; i < slrParsingTable.length; i++) {
     console.log("----state is: ", i);
@@ -563,6 +655,7 @@ function parseInput() {
   );
 
   console.log("parsing table output: ", parsingTableOutput);
+  drawInputParsingTable(parsingTableOutput,parsingInput);
 }
 
 class CreateCircle {
